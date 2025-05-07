@@ -1,77 +1,77 @@
-import { McpAgent } from "agents/mcp";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
+import { HTTP_STATUS_CODES } from "@/infrastructure/utils/constants";
+import type { MCPEnv } from "@/infrastructure/durableObjects/types";
+import { Application } from "./infrastructure/application";
+import { Router } from "./infrastructure/router";
+import { MethodNotImplementedError } from "./infrastructure/utils/errors/methods";
+import { ModuleError } from "./infrastructure/utils/errors/modules";
+import { ServiceNotImplementedError } from "./infrastructure/utils/errors/services";
+import { getLogger } from "@/infrastructure/utils/logger";
 
-// Define our MCP agent with tools
-export class MyMCP extends McpAgent {
-	server = new McpServer({
-		name: "Authless Calculator",
-		version: "1.0.0",
+// Agents
+import { WeatherAgentMCP as WeatherAgentMCPClass } from "@/modules/weather/infrastructure/WeatherAgent";
+import { WeatherCache as WeatherCacheClass } from "@/modules/weather/infrastructure/WeatherCache";
+
+// Export with specific names for Cloudflare
+export const WeatherAgentMCP = WeatherAgentMCPClass;
+export const WeatherCache = WeatherCacheClass;
+
+const logger = getLogger("EntryPoint");
+
+function handleError(error: unknown): Response {
+	logger.error("Handling error", {
+		error: error instanceof Error ? error.message : String(error),
 	});
-
-	async init() {
-		// Simple addition tool
-		this.server.tool(
-			"add",
-			{ a: z.number(), b: z.number() },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			})
-		);
-
-		// Calculator tool with multiple operations
-		this.server.tool(
-			"calculate",
-			{
-				operation: z.enum(["add", "subtract", "multiply", "divide"]),
-				a: z.number(),
-				b: z.number(),
-			},
-			async ({ operation, a, b }) => {
-				let result: number;
-				switch (operation) {
-					case "add":
-						result = a + b;
-						break;
-					case "subtract":
-						result = a - b;
-						break;
-					case "multiply":
-						result = a * b;
-						break;
-					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
-						result = a / b;
-						break;
-				}
-				return { content: [{ type: "text", text: String(result) }] };
-			}
-		);
+	if (error instanceof MethodNotImplementedError) {
+		return new Response(error.getMessage(), { status: error.getCode() });
 	}
+
+	if (error instanceof ModuleError) {
+		return new Response(error.getMessage(), { status: error.getCode() });
+	}
+
+	if (error instanceof ServiceNotImplementedError) {
+		return new Response(error.getMessage(), { status: error.getCode() });
+	}
+
+	if (error instanceof Error) {
+		return new Response(error.message, { status: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR });
+	}
+
+	return new Response("Internal server error", {
+		status: HTTP_STATUS_CODES.INTERNAL_SERVER_ERROR,
+	});
 }
 
+/**
+ * Main handler for the Worker
+ *
+ * Handles routing for weather data requests and status endpoint
+ */
 export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		const url = new URL(request.url);
-
-		if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-			// @ts-ignore
-			return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
+	/**
+	 * Process incoming requests
+	 *
+	 * @param {Request} request - The incoming HTTP request
+	 * @param {MCPEnv} env - Environment bindings including Durable Objects
+	 * @param {ExecutionContext} ctx - Execution context for the Worker
+	 * @returns {Promise<Response>} HTTP response
+	 */
+	async fetch(request: Request, env: MCPEnv, ctx: ExecutionContext): Promise<Response> {
+		logger.info("Received request", { url: request.url, method: request.method });
+		try {
+			const app = new Application(request, ctx, env);
+			const router = Router.instantiate(app);
+			const response = await router.dispatch();
+			logger.info("Request handled successfully", {
+				url: request.url,
+				status: response.status,
+			});
+			return response;
+		} catch (error: unknown) {
+			logger.error("Error handling request", {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return handleError(error);
 		}
-
-		if (url.pathname === "/mcp") {
-			// @ts-ignore
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
-
-		return new Response("Not found", { status: 404 });
 	},
 };

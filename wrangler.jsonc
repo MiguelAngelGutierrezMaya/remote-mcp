@@ -4,28 +4,34 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "mcp-remote",
+	"name": "fetch-agent-mcp-v2",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-03-10",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_date": "2025-05-03",
+	"compatibility_flags": ["nodejs_compat"],
 	"migrations": [
 		{
-			"new_sqlite_classes": [
-				"MyMCP"
-			],
-			"tag": "v1"
+			"tag": "v1",
+			"new_sqlite_classes": ["WeatherAgentMCP", "WeatherCache"]
 		}
 	],
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "MyMCP",
-				"name": "MCP_OBJECT"
+				"name": "MCP_OBJECT",
+				"class_name": "WeatherAgentMCP"
+			},
+			{
+				"name": "WEATHER_CACHE",
+				"class_name": "WeatherCache"
 			}
 		]
 	},
+	"kv_namespaces": [
+		{
+			"binding": "WEATHER_CACHE_KV",
+			"id": "7705d8010ae942a6a889ebacc2d2a747"
+		}
+	],
 	"observability": {
 		"enabled": true
 	}
