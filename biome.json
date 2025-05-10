@@ -1,10 +1,18 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.6.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/1.9.2/schema.json",
 	"organizeImports": {
 		"enabled": true
 	},
 	"files": {
-		"ignore": ["worker-configuration.d.ts"]
+		"ignore": [
+			"worker-configuration.d.ts",
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/.git/**",
+			"coverage/**",
+			"src/types/jest*.d.ts",
+			"src/types/**/__tests__/**"
+		]
 	},
 	"vcs": {
 		"enabled": true,
@@ -22,13 +30,35 @@
 				"noConfusingVoidType": "off"
 			},
 			"style": {
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				"useConst": "error",
+				"useTemplate": "error",
+				"noUselessElse": "error"
+			},
+			"correctness": {
+				"noUnusedVariables": "error",
+				"noUnusedPrivateClassMembers": "error",
+				"noUnusedLabels": "error",
+				"noUnusedImports": "error"
+			},
+			"complexity": {
+				"noForEach": "warn",
+				"useOptionalChain": "error",
+				"noExcessiveCognitiveComplexity": "error"
 			}
 		}
 	},
 	"formatter": {
 		"enabled": true,
 		"indentWidth": 4,
-		"lineWidth": 100
+		"lineWidth": 100,
+		"ignore": ["**/node_modules/**", "**/dist/**"]
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"trailingCommas": "all",
+			"semicolons": "always"
+		}
 	}
 }
